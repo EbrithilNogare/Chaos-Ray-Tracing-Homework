@@ -1,0 +1,91 @@
+{
+	"settings": {
+		"background_color": [
+			0, 0.5, 0
+		],		
+		"image_settings": {
+			"width": 1920,
+			"height": 1080
+		}
+	},
+	
+	"camera": {
+		"matrix": [
+			1, 0, 0,
+			0, 1, 0,
+			0, 0, 1
+		],		
+		"position": [
+			0, 0, 0
+		]
+	},
+
+	"lights": [
+		{
+			"intensity": 1000,
+			"position": [
+				5, 5, 6
+			]
+		}
+	],
+
+	"textures":[{
+			"name": "Color texture",
+			"type": "albedo",
+			"albedo": [
+				1, 0, 0
+			]
+		},{
+			"name": "Red Green Edges",
+			"type": "edges",
+			"edge_color": [
+				0, 1, 0
+			],
+			"inner_color": [
+				1, 0, 0
+			],
+			"edge_width": 0.04			
+		},{
+			"name": "Black White Checker",
+			"type": "checker",
+			"color_A": [
+				0, 0, 0
+			],
+			"color_B": [
+				1, 1, 1
+			],
+			"square_size": 0.125		
+		},{
+			"name": "Dragon texture",
+			"type": "bitmap",
+			"file_path": "/textures/dragon.jpg"
+		}		
+	],
+	
+	"materials": [{
+			"type": "diffuse",
+			"albedo": "Color texture",
+			"smooth_shading": false
+		}	
+	],
+	
+	"objects": [{
+			"material_index": 0,	
+			"vertices": [
+				-1.75, -1.75, -3,
+				1.75, -1.75, -3,
+				0, 1.75, -3
+			],
+			"uvs": [
+				0, 0, 0,
+				1, 0, 0,
+				0.5, 1, 0
+			],			
+			"triangles": [
+				0, 1, 2
+			]
+		}
+	]
+}
+
+

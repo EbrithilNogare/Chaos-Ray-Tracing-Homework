@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\dev\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Release\ChaosRaytracer.exe</FullPath>
+      <FullPath>D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Release\ChaosRaytracer.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />
