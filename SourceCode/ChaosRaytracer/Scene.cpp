@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Scene.hpp"
 
 Scene::Scene()
@@ -8,22 +10,25 @@ Scene::Scene()
     imageHeight(1080),
     rowsCompleted(0) {}
 
-void Scene::WorldIntersection(const Vector3 ray, const Vector3 position, float& closestDistance, Vector3& surfaceNormal, int& materialIndex)
+void Scene::WorldIntersection(const Vector3 ray, const Vector3 position, float& closestDistance, Vector3& surfaceNormal, int& materialIndex, Vector3& uv, Vector3& interpolatedUV)
 {
     for (auto& triangle : triangles) {
-        Vector3 uv = Vector3(0, 0, 0);
-        float distance = triangle.intersect(ray, position, uv);
+        Vector3 currentUV = Vector3(0, 0, 0);
+        Vector3 currentInterpolatedUV = Vector3(0, 0, 0);
+        float distance = triangle.intersect(ray, position, currentUV, currentInterpolatedUV);
         if (distance < closestDistance) {
             closestDistance = distance;
             materialIndex = triangle.materialIndex;
             surfaceNormal = triangle.hitNormal(uv.x, uv.y);
+            uv = currentUV;
+            interpolatedUV = currentInterpolatedUV;
         }
     }
 }
 
 Vector3 Scene::Refract(const Vector3& incident, const Vector3& normal, float ior)
 {
-    float cosi = std::clamp(-1.0f, 1.0f, incident.dot(normal));
+    float cosi = std::max(-1.0f, std::min(1.0f, incident.dot(normal)));
     float etai = 1;
     float etat = ior;
     Vector3 n = normal;
@@ -40,7 +45,7 @@ Vector3 Scene::Refract(const Vector3& incident, const Vector3& normal, float ior
 
 float Scene::Fresnel(const Vector3& incident, const Vector3& normal, float ior)
 {
-    float cosi = std::clamp(-1.0f, 1.0f, incident.dot(normal));
+    float cosi = std::max(-1.0f, std::min(1.0f, incident.dot(normal)));
     float etai = 1;
     float etat = ior;
 
@@ -72,7 +77,7 @@ Vector3 Scene::Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal)
         float closestDistance = std::numeric_limits<float>::infinity();
         Vector3 _dummy1 = Vector3(0, 0, 0);
         int _dummy2 = 0;
-        WorldIntersection(fromLightDir, light.position, closestDistance, _dummy1, _dummy2);
+        WorldIntersection(fromLightDir, light.position, closestDistance, _dummy1, _dummy2, _dummy1, _dummy1);
 
         if (closestDistance + EPSILON < (light.position - intersectionPoint).length()) {
             continue;
@@ -94,21 +99,24 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
     Vector3 rayOrigin = origin;
     Vector3 currentRay = ray;
 
-    for (int bounceNumber = 0; bounceNumber < maxBounces; bounceNumber++)
-    {
+    for (int bounceNumber = 0; bounceNumber < maxBounces; bounceNumber++) {
         float distance = std::numeric_limits<float>::infinity();
         Vector3 surfaceNormal = Vector3(0, 0, 0);
+        Vector3 uv = Vector3(0, 0, 0);
+        Vector3 interpolatedUV = Vector3(0, 0, 0);
         int materialIndex = 0;
-        WorldIntersection(currentRay, rayOrigin, distance, surfaceNormal, materialIndex);
+        WorldIntersection(currentRay, rayOrigin, distance, surfaceNormal, materialIndex, uv, interpolatedUV);
         if (distance == std::numeric_limits<float>::infinity()) {
             finalColor = finalColor + colorPersistance * defaultColor;
             break;
         }
 
         Vector3 intersectionPoint = rayOrigin + currentRay * distance;
-        Material material = materials[materialIndex];
+        Material& material = materials[materialIndex];
 
-        colorPersistance = colorPersistance * material.albedo;
+        Vector3 color = material.albedo.GetColorFromMaterial(uv, interpolatedUV);
+
+        colorPersistance = colorPersistance * color;
 
         if (material.type == diffuse) {
             Vector3 lightContribution = Diffuse(intersectionPoint, surfaceNormal);
@@ -293,6 +301,50 @@ void Scene::loadScene(const std::string& filename) {
         }
     }
 
+    textures.clear();
+    if (document.HasMember("textures") && document["textures"].IsArray()) {
+        const rapidjson::Value& texturesArray = document["textures"];
+        for (rapidjson::SizeType i = 0; i < texturesArray.Size(); ++i) {
+            const rapidjson::Value& texture = texturesArray[i];
+            std::string name = texture["name"].GetString();
+            std::string typeStr = texture["type"].GetString();
+            TextureType type;
+
+            if (typeStr == "albedo") type = ALBEDO;
+            else if (typeStr == "edges") type = EDGES;
+            else if (typeStr == "checker") type = CHECKER;
+            else if (typeStr == "bitmap") type = BITMAP;
+            else throw "Unknown texture type";
+
+            if (type == ALBEDO) {
+                const auto& albedoArray = texture["albedo"].GetArray();
+                Vector3 albedo = Vector3(albedoArray[0].GetFloat(), albedoArray[1].GetFloat(), albedoArray[2].GetFloat());
+                textures.push_back(Texture::CreateAlbedoTexture(name, albedo));
+            }
+            else if (type == EDGES) {
+                const auto& edgeColorArray = texture["edge_color"].GetArray();
+                Vector3 edgeColor = Vector3(edgeColorArray[0].GetFloat(), edgeColorArray[1].GetFloat(), edgeColorArray[2].GetFloat());
+                const auto& innerColorArray = texture["inner_color"].GetArray();
+                Vector3 innerColor = Vector3(innerColorArray[0].GetFloat(), innerColorArray[1].GetFloat(), innerColorArray[2].GetFloat());
+                float edgeWidth = texture["edge_width"].GetFloat();
+                textures.push_back(Texture::CreateEdgesTexture(name, edgeColor, innerColor, edgeWidth));
+            }
+            else if (type == CHECKER) {
+                const auto& colorAArray = texture["color_A"].GetArray();
+                Vector3 colorA = Vector3(colorAArray[0].GetFloat(), colorAArray[1].GetFloat(), colorAArray[2].GetFloat());
+                const auto& colorBArray = texture["color_B"].GetArray();
+                Vector3 colorB = Vector3(colorBArray[0].GetFloat(), colorBArray[1].GetFloat(), colorBArray[2].GetFloat());
+                float squareSize = texture["square_size"].GetFloat();
+
+                textures.push_back(Texture::CreateCheckerTexture(name, colorA, colorB, squareSize));
+            }
+            else if (type == BITMAP) {
+                std::string filePath = texture["file_path"].GetString();
+                textures.push_back(Texture::CreateBitmapTexture(name, filePath));
+            }
+        }
+    }
+
     materials.clear();
     if (document.HasMember("materials") && document["materials"].IsArray()) {
         const rapidjson::Value& materialsArray = document["materials"];
@@ -307,10 +359,17 @@ void Scene::loadScene(const std::string& filename) {
                 if (std::string(material["type"].GetString()) == "constant") { materialType = constant; }
             }
 
-            Vector3 albedo(1, 1, 1);
-            if (material.HasMember("albedo") && material["albedo"].IsArray()) {
-                const auto& albedoArray = material["albedo"].GetArray();
-                albedo = Vector3(albedoArray[0].GetFloat(), albedoArray[1].GetFloat(), albedoArray[2].GetFloat());
+            Texture albedo = textures[0];
+            if (material.HasMember("albedo")) {
+                if (material["albedo"].IsString()) {
+                    const auto& albedoName = material["albedo"].GetString();
+                    for (auto texture : textures)
+                    {
+                        if (albedoName == texture.name) {
+                            albedo = texture;
+                        }
+                    }
+                }
             }
 
             float ior = 1.0f;
@@ -337,12 +396,19 @@ void Scene::loadScene(const std::string& filename) {
                 materialIndex = object["material_index"].GetInt();
             }
             if (object.HasMember("vertices") && object["vertices"].IsArray() &&
+                object.HasMember("uvs") && object["uvs"].IsArray() &&
                 object.HasMember("triangles") && object["triangles"].IsArray()) {
 
                 std::vector<Vector3> vertices;
                 const rapidjson::Value& verticesArray = object["vertices"];
                 for (rapidjson::SizeType j = 0; j < verticesArray.Size(); j += 3) {
                     vertices.push_back(Vector3(verticesArray[j].GetFloat(), verticesArray[j + 1].GetFloat(), verticesArray[j + 2].GetFloat()));
+                }
+
+                std::vector<Vector3> vertexUVs;
+                const rapidjson::Value& uvArray = object["uvs"];
+                for (rapidjson::SizeType j = 0; j < uvArray.Size(); j += 3) {
+                    vertexUVs.push_back(Vector3(uvArray[j].GetFloat(), uvArray[j + 1].GetFloat(), uvArray[j + 2].GetFloat()));
                 }
 
                 std::vector<Vector3> vertexNormals(vertices.size(), Vector3(0, 0, 0));
@@ -382,7 +448,10 @@ void Scene::loadScene(const std::string& filename) {
                         materialIndex,
                         vertexNormals[indexA],
                         vertexNormals[indexB],
-                        vertexNormals[indexC]
+                        vertexNormals[indexC],
+                        vertexUVs[indexA],
+                        vertexUVs[indexB],
+                        vertexUVs[indexC]
                     );
 
                     if (!materials[materialIndex].smoothShading) {

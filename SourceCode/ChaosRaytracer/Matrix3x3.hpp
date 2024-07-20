@@ -17,7 +17,6 @@ struct Matrix3x3 {
 		data[2][2] = m22;
 	}
 
-	[[gnu::pure]]
 	Vector3 operator*(const Vector3& vec) const {
 		return Vector3(
 			vec.x * data[0][0] + vec.y * data[1][0] + vec.z * data[2][0],

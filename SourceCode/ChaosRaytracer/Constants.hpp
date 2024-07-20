@@ -1,9 +1,12 @@
 #pragma once
 
+#include <string>
+
 // Settings
 const int RAYS_PER_PIXEL = 1;
 const int MAXIMUM_RAY_BOUNCES_COUNT = 16;
 const float LIGHT_INTENSITY_CORRECTION = 1 / 8.0f;
+const std::string SCENES_FOLDER = "./scenes/12";
 
 // Constants
 const int MAX_COLOR_COMPONENT = 255;

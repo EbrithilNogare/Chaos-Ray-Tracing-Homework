@@ -132,11 +132,14 @@
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Scene.hpp" />
+    <ClCompile Include="Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Light.hpp" />
     <ClInclude Include="Material.hpp" />
     <ClInclude Include="Matrix3x3.hpp" />
+    <ClInclude Include="stb_image.h" />
+    <ClInclude Include="Texture.hpp" />
     <ClInclude Include="Triangle.hpp" />
     <ClInclude Include="Vector3.hpp" />
   </ItemGroup>

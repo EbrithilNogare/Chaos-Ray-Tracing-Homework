@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 
 source_folder = 'output'
-destination_folder = '../../Images/11'
+destination_folder = '../../Images/12'
 
 os.makedirs(destination_folder, exist_ok=True)
 

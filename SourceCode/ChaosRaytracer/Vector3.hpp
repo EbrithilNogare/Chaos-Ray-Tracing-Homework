@@ -12,35 +12,31 @@ struct Vector3 {
 	float y;
 	float z;
 
+	Vector3() : x(0), y(0), z(0) {}
+	
 	Vector3(float _x, float _y, float _z)
 		: x(_x), y(_y), z(_z) {}
 
-	[[gnu::pure]]
 	Vector3 operator+(const Vector3& other) const {
 		return Vector3(x + other.x, y + other.y, z + other.z);
 	}
 
-	[[gnu::pure]]
 	Vector3 operator-(const Vector3& other) const {
 		return Vector3(x - other.x, y - other.y, z - other.z);
 	}
 
-	[[gnu::pure]]
 	Vector3 operator*(const float& other) const {
 		return Vector3(x * other, y * other, z * other);
 	}
 
-	[[gnu::pure]]
 	Vector3 operator*(const Vector3& other) const {
 		return Vector3(x * other.x, y * other.y, z * other.z);
 	}
 
-	[[gnu::pure]]
 	Vector3 operator/(const float& other) const {
 		return Vector3(x / other, y / other, z / other);
 	}
 
-	[[gnu::pure]]
 	Vector3 normalize() const {
 		float len = length();
 		if (len == 0 || len == -std::numeric_limits<float>::infinity())
@@ -48,7 +44,6 @@ struct Vector3 {
 		return Vector3(x / len, y / len, z / len);
 	}
 
-	[[gnu::pure]]
 	Vector3 cross(const Vector3& other) const {
 		return Vector3(
 			y * other.z - z * other.y,
@@ -57,27 +52,22 @@ struct Vector3 {
 		);
 	}
 
-	[[gnu::pure]]
 	float dot(const Vector3& other) const {
 		return x * other.x + y * other.y + z * other.z;
 	}
 
-	[[gnu::pure]]
 	float length() const {
 		return std::sqrt(x * x + y * y + z * z);
 	}
 
-	[[gnu::pure]]
 	float lengthSquared() const {
 		return x * x + y * y + z * z;
 	}
 
-	[[gnu::pure]]
 	float area(const Vector3& other) const {
 		return cross(other).length();
 	}
 
-	[[gnu::pure]]
 	Vector3 rotate(const Vector3& rotation) {
 		float pitch = rotation.x * (M_PI / 180.0f);
 		float yaw = rotation.y * (M_PI / 180.0f);
