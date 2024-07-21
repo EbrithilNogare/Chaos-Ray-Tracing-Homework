@@ -1,6 +1,8 @@
-﻿  Scene.cpp
-D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\Vector3.hpp(20,3): warning C5030: attribute [[gnu::pure]] is not recognized
-  (compiling source file 'Scene.cpp')
-  
+﻿  Constants.hpp
+  Scene.cpp
+  Main.cpp
+  Scene.hpp
+  Texture.cpp
+  Generating Code...
 ChaosRaytracer\x64\Debug\Scene.obj : warning LNK4042: object specified more than once; extras ignored
   ChaosRaytracer.vcxproj -> D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Debug\ChaosRaytracer.exe

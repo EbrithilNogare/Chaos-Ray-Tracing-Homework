@@ -20,6 +20,7 @@
 #include "Material.hpp"
 #include "Constants.hpp"
 #include "Texture.hpp"
+#include "AABB.hpp"
 
 class Scene {
 public:
@@ -37,12 +38,13 @@ private:
     std::vector<Material> materials;
     std::vector<Texture> textures;
     std::vector<std::vector<Vector3>> imageBuffer;
-    std::mutex bufferMutex;
+    //std::mutex bufferMutex;
     int imageWidth;
     int imageHeight;
     int rowsCompleted;
+    AABB rootAABB;
 
-    void WorldIntersection(const Vector3 ray, const Vector3 position, float& closestDistance, Vector3& surfaceNormal, int& materialIndex, Vector3& uv, Vector3& interpolatedUV);
+    Intersection WorldIntersection(const Vector3 ray, const Vector3 position);
     Vector3 Refract(const Vector3& incident, const Vector3& normal, float eta);
     float Fresnel(const Vector3& incident, const Vector3& normal, float ior);
     Vector3 Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal);

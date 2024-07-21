@@ -8,22 +8,26 @@ Scene::Scene()
     cameraRotation(Matrix3x3(1, 0, 0, 0, 1, 0, 0, 0, 1)),
     imageWidth(1920),
     imageHeight(1080),
+    rootAABB(Vector3(), Vector3()),
     rowsCompleted(0) {}
 
-void Scene::WorldIntersection(const Vector3 ray, const Vector3 position, float& closestDistance, Vector3& surfaceNormal, int& materialIndex, Vector3& uv, Vector3& interpolatedUV)
+Intersection Scene::WorldIntersection(const Vector3 ray, const Vector3 position)
 {
+    Intersection closestIntersection = Intersection();
+
+    if (!rootAABB.intersect(position, ray)) {
+        return closestIntersection;
+    }
+
     for (auto& triangle : triangles) {
-        Vector3 currentUV = Vector3(0, 0, 0);
-        Vector3 currentInterpolatedUV = Vector3(0, 0, 0);
-        float distance = triangle.intersect(ray, position, currentUV, currentInterpolatedUV);
-        if (distance < closestDistance) {
-            closestDistance = distance;
-            materialIndex = triangle.materialIndex;
-            surfaceNormal = triangle.hitNormal(uv.x, uv.y);
-            uv = currentUV;
-            interpolatedUV = currentInterpolatedUV;
+        Intersection intersection = triangle.intersect(ray, position);
+        if (intersection.distance < closestIntersection.distance) {
+            closestIntersection = intersection;
+            closestIntersection.materialIndex = triangle.materialIndex;
+            closestIntersection.surfaceNormal = triangle.hitNormal(intersection.uv.x, intersection.uv.y);
         }
     }
+    return closestIntersection;
 }
 
 Vector3 Scene::Refract(const Vector3& incident, const Vector3& normal, float ior)
@@ -74,12 +78,9 @@ Vector3 Scene::Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal)
         Vector3 lightDir = (light.position - intersectionPoint).normalize();
         Vector3 fromLightDir = (intersectionPoint - light.position).normalize();
 
-        float closestDistance = std::numeric_limits<float>::infinity();
-        Vector3 _dummy1 = Vector3(0, 0, 0);
-        int _dummy2 = 0;
-        WorldIntersection(fromLightDir, light.position, closestDistance, _dummy1, _dummy2, _dummy1, _dummy1);
+        Intersection intersection = WorldIntersection(fromLightDir, light.position);
 
-        if (closestDistance + EPSILON < (light.position - intersectionPoint).length()) {
+        if (intersection.distance + EPSILON < (light.position - intersectionPoint).length()) {
             continue;
         }
 
@@ -100,32 +101,28 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
     Vector3 currentRay = ray;
 
     for (int bounceNumber = 0; bounceNumber < maxBounces; bounceNumber++) {
-        float distance = std::numeric_limits<float>::infinity();
-        Vector3 surfaceNormal = Vector3(0, 0, 0);
-        Vector3 uv = Vector3(0, 0, 0);
-        Vector3 interpolatedUV = Vector3(0, 0, 0);
-        int materialIndex = 0;
-        WorldIntersection(currentRay, rayOrigin, distance, surfaceNormal, materialIndex, uv, interpolatedUV);
-        if (distance == std::numeric_limits<float>::infinity()) {
+        Intersection intersection = WorldIntersection(currentRay, rayOrigin);
+
+        if (intersection.type == Miss ) {
             finalColor = finalColor + colorPersistance * defaultColor;
             break;
         }
 
-        Vector3 intersectionPoint = rayOrigin + currentRay * distance;
-        Material& material = materials[materialIndex];
+        Vector3 intersectionPoint = rayOrigin + currentRay * intersection.distance;
+        Material& material = materials[intersection.materialIndex];
 
-        Vector3 color = material.albedo.GetColorFromMaterial(uv, interpolatedUV);
+        Vector3 color = material.albedo.GetColorFromMaterial(intersection.uv, intersection.interpolatedUV);
 
         colorPersistance = colorPersistance * color;
 
         if (material.type == diffuse) {
-            Vector3 lightContribution = Diffuse(intersectionPoint, surfaceNormal);
+            Vector3 lightContribution = Diffuse(intersectionPoint, intersection.surfaceNormal);
             finalColor = finalColor + colorPersistance * lightContribution;
             break;
         }
 
         if (material.type == reflective) {
-            currentRay = (currentRay - surfaceNormal * 2 * (currentRay.dot(surfaceNormal))).normalize();
+            currentRay = (currentRay - intersection.surfaceNormal * 2 * (currentRay.dot(intersection.surfaceNormal))).normalize();
             rayOrigin = intersectionPoint + currentRay * EPSILON;
         }
 
@@ -135,9 +132,9 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
         }
 
         if (material.type == refractive) {
-            float kr = Fresnel(currentRay, surfaceNormal, material.ior);
-            Vector3 reflectedRay = (currentRay - surfaceNormal * 2 * (currentRay.dot(surfaceNormal))).normalize();
-            Vector3 refractedRay = Refract(currentRay, surfaceNormal, material.ior).normalize();
+            float kr = Fresnel(currentRay, intersection.surfaceNormal, material.ior);
+            Vector3 reflectedRay = (currentRay - intersection.surfaceNormal * 2 * (currentRay.dot(intersection.surfaceNormal))).normalize();
+            Vector3 refractedRay = Refract(currentRay, intersection.surfaceNormal, material.ior).normalize();
 
             Vector3 reflectedColor = RayTraceRay(intersectionPoint + reflectedRay * EPSILON, reflectedRay, (maxBounces - 1) / 2);
             Vector3 refractedColor = RayTraceRay(intersectionPoint + refractedRay * EPSILON, refractedRay, (maxBounces - 1) / 2);
@@ -195,9 +192,8 @@ void Scene::renderFrame(int frameNumber) {
                     color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
                     finalColor = finalColor + color;
                 }
-                bufferMutex.lock();
+
                 imageBuffer[imageY][imageX] = finalColor / (float)RAYS_PER_PIXEL;
-                bufferMutex.unlock();
             }
 
             rowsCompleted++;
@@ -206,10 +202,9 @@ void Scene::renderFrame(int frameNumber) {
     };
 
     std::vector<std::thread> threads;
-    int maxThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 
-    for (int i = 0; i < maxThreads; ++i) {
-        threads.emplace_back(renderRowRange, i, maxThreads);
+    for (int i = 0; i < THREADS_TO_USE; ++i) {
+        threads.emplace_back(renderRowRange, i, THREADS_TO_USE);
     }
 
     for (auto& thread : threads) {
@@ -359,7 +354,7 @@ void Scene::loadScene(const std::string& filename) {
                 if (std::string(material["type"].GetString()) == "constant") { materialType = constant; }
             }
 
-            Texture albedo = textures[0];
+            Texture albedo = Texture("", ALBEDO);
             if (material.HasMember("albedo")) {
                 if (material["albedo"].IsString()) {
                     const auto& albedoName = material["albedo"].GetString();
@@ -369,6 +364,13 @@ void Scene::loadScene(const std::string& filename) {
                             albedo = texture;
                         }
                     }
+                }
+                
+                if (material["albedo"].IsArray()) {
+                    const auto& albedoArray = material["albedo"].GetArray();
+                    Vector3 albedoColor = Vector3(albedoArray[0].GetFloat(), albedoArray[1].GetFloat(), albedoArray[2].GetFloat());
+                    albedo = Texture::CreateAlbedoTexture("", albedoColor);
+
                 }
             }
 
@@ -396,7 +398,6 @@ void Scene::loadScene(const std::string& filename) {
                 materialIndex = object["material_index"].GetInt();
             }
             if (object.HasMember("vertices") && object["vertices"].IsArray() &&
-                object.HasMember("uvs") && object["uvs"].IsArray() &&
                 object.HasMember("triangles") && object["triangles"].IsArray()) {
 
                 std::vector<Vector3> vertices;
@@ -406,9 +407,11 @@ void Scene::loadScene(const std::string& filename) {
                 }
 
                 std::vector<Vector3> vertexUVs;
-                const rapidjson::Value& uvArray = object["uvs"];
-                for (rapidjson::SizeType j = 0; j < uvArray.Size(); j += 3) {
-                    vertexUVs.push_back(Vector3(uvArray[j].GetFloat(), uvArray[j + 1].GetFloat(), uvArray[j + 2].GetFloat()));
+                if (object.HasMember("uvs") && object["uvs"].IsArray()) {
+                    const rapidjson::Value& uvArray = object["uvs"];
+                    for (rapidjson::SizeType j = 0; j < uvArray.Size(); j += 3) {
+                        vertexUVs.push_back(Vector3(uvArray[j].GetFloat(), uvArray[j + 1].GetFloat(), uvArray[j + 2].GetFloat()));
+                    }
                 }
 
                 std::vector<Vector3> vertexNormals(vertices.size(), Vector3(0, 0, 0));
@@ -441,6 +444,10 @@ void Scene::loadScene(const std::string& filename) {
                     int indexB = trianglesArray[j + 1].GetInt();
                     int indexC = trianglesArray[j + 2].GetInt();
 
+                    Vector3 vertexAUV = indexA - 1 < vertexUVs.size() ? vertexUVs[indexA] : Vector3();
+                    Vector3 vertexBUV = indexB - 1 < vertexUVs.size() ? vertexUVs[indexB] : Vector3();
+                    Vector3 vertexCUV = indexC - 1 < vertexUVs.size() ? vertexUVs[indexC] : Vector3();
+
                     Triangle triangle = Triangle(
                         vertices[indexA],
                         vertices[indexB],
@@ -449,9 +456,9 @@ void Scene::loadScene(const std::string& filename) {
                         vertexNormals[indexA],
                         vertexNormals[indexB],
                         vertexNormals[indexC],
-                        vertexUVs[indexA],
-                        vertexUVs[indexB],
-                        vertexUVs[indexC]
+                        vertexAUV,
+                        vertexBUV,
+                        vertexCUV
                     );
 
                     if (!materials[materialIndex].smoothShading) {
@@ -462,5 +469,18 @@ void Scene::loadScene(const std::string& filename) {
                 }
             }
         }
+    }
+
+    if (!triangles.empty()) {
+        Vector3 minVec = triangles[0].vertexA;
+        Vector3 maxVec = triangles[0].vertexA;
+        rootAABB = AABB(minVec, maxVec);
+
+        for (const auto& triangle : triangles) {
+            rootAABB.expandToInclude(triangle.vertexA);
+            rootAABB.expandToInclude(triangle.vertexB);
+            rootAABB.expandToInclude(triangle.vertexC);
+        }
+
     }
 }

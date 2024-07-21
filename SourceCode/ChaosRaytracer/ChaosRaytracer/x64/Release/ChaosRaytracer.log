@@ -6,6 +6,6 @@
 ChaosRaytracer\x64\Release\Scene.obj : warning LNK4042: object specified more than once; extras ignored
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 1093 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 1128 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   ChaosRaytracer.vcxproj -> D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Release\ChaosRaytracer.exe

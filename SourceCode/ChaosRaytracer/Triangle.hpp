@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vector3.hpp"
+#include "Intersection.hpp"
 
 struct Triangle {
     Vector3 vertexA;
@@ -17,13 +18,13 @@ struct Triangle {
     Triangle(Vector3 _vertexA, Vector3 _vertexB, Vector3 _vertexC, int _materialIndex, Vector3 _vertexANormal, Vector3 _vertexBNormal, Vector3 _vertexCNormal, Vector3 _vertexAUV, Vector3 _vertexBUV, Vector3 _vertexCUV)
         : vertexA(_vertexA), vertexB(_vertexB), vertexC(_vertexC), materialIndex(_materialIndex), vertexANormal(_vertexANormal), vertexBNormal(_vertexBNormal), vertexCNormal(_vertexCNormal), vertexAUV(_vertexAUV), vertexBUV(_vertexBUV), vertexCUV(_vertexCUV) {}
 
-    Vector3 normal() const {
+    inline Vector3 normal() const {
         Vector3 vectorAB = vertexB - vertexA;
         Vector3 vectorAC = vertexC - vertexA;
         return vectorAB.cross(vectorAC).normalize();
     }
 
-    Vector3 hitNormal(float u, float v) const {
+    inline Vector3 hitNormal(float u, float v) const {
         return (vertexBNormal * u + vertexCNormal * v + vertexANormal * (1 - u - v)).normalize();
     }
 
@@ -33,7 +34,9 @@ struct Triangle {
         return 0.5f * vectorAB.cross(vectorAC).length();
     }
 
-    float intersect(Vector3 ray, Vector3 cameraPosition, Vector3& uv, Vector3& interpolatedUV) const {
+    Intersection intersect(Vector3 ray, Vector3 cameraPosition) const {
+        Intersection intersection = Intersection();
+
         Vector3 translatedPointA = vertexA - cameraPosition;
         Vector3 translatedPointB = vertexB - cameraPosition;
         Vector3 translatedPointC = vertexC - cameraPosition;
@@ -41,10 +44,12 @@ struct Triangle {
         Vector3 E0 = translatedPointB - translatedPointA;
         Vector3 E1 = translatedPointC - translatedPointB;
         Vector3 E2 = translatedPointA - translatedPointC;
-        Vector3 normal = E0.cross(E1).normalize();
+        Vector3 normal = E0.cross(E1);
 
         float dotOfRayAndNormal = ray.dot(normal);
-        if (dotOfRayAndNormal == 0) return std::numeric_limits<float>::infinity();
+        if (dotOfRayAndNormal == 0) {
+            return intersection;
+        }
 
         float dotToPlane = translatedPointA.dot(normal);
         // Back face culling
@@ -54,7 +59,7 @@ struct Triangle {
 
         float distance = dotToPlane / dotOfRayAndNormal;
         if (distance < 0) {
-            return std::numeric_limits<float>::infinity();
+            return intersection;
         }
 
         Vector3 pointOfHit = ray * distance;
@@ -71,16 +76,18 @@ struct Triangle {
         Vector3 C2 = E2.cross(V2P);
 
         float areaABC = V0V1.cross(V0V2).length();
-        uv.x = C2.length() / areaABC;
-        uv.y = C0.length() / areaABC;
+        intersection.uv.x = C2.length() / areaABC;
+        intersection.uv.y = C0.length() / areaABC;
+        intersection.uv.z = 1 - intersection.uv.x - intersection.uv.y;
 
-        interpolatedUV = vertexBUV* uv.x + vertexCUV * uv.y + vertexAUV * (1 - uv.x - uv.y);
+        intersection.interpolatedUV = vertexBUV* intersection.uv.x + vertexCUV * intersection.uv.y + vertexAUV * intersection.uv.z;
 
         if (normal.dot(C0) > 0 && normal.dot(C1) > 0 && normal.dot(C2) > 0) {
-            return distance;
+            intersection.distance = distance;
+            intersection.type = Hit;
+            return intersection;
         }
 
-        return std::numeric_limits<float>::infinity();
+        return intersection;
     }
-
 };
