@@ -171,40 +171,61 @@ void Scene::renderFrame(int frameNumber) {
     imageBuffer = std::vector<std::vector<Vector3>>(imageHeight, std::vector<Vector3>(imageWidth, Vector3(0, 0, 0)));
     rowsCompleted = 0;
 
-    auto renderRowRange = [this](int startRow, int stepRow) {
-        for (int imageY = startRow; imageY < imageHeight; imageY += stepRow) {
-            for (int imageX = 0; imageX < imageWidth; ++imageX) {
-                Vector3 finalColor = Vector3(0, 0, 0);
-                for (int rayNumber = 0; rayNumber < RAYS_PER_PIXEL; rayNumber++) {
-                    float randomX = ((float)rand() / (RAND_MAX)) + imageX;
-                    float randomY = ((float)rand() / (RAND_MAX)) + imageY;
+    for (int y = 0; y < imageHeight; y += bucketSize) {
+        for (int x = 0; x < imageWidth; x += bucketSize) {
+            chunkPool.emplace_back(y, x);
+        }
+    }
 
-                    float x = randomX / imageWidth;  // from 0 to 1
-                    float y = randomY / imageHeight; // from 0 to 1
-
-                    x = (2.0f * x) - 1.0f; // from -1 to 1
-                    y = 1.0f - (2.0f * y); // from -1 to 1
-
-                    float aspectRatio = (float)imageWidth / (float)imageHeight;
-                    x *= aspectRatio; // from -ar to ar
-
-                    Vector3 color = RayTrace(x, y);
-                    color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
-                    finalColor = finalColor + color;
+    auto renderChunk = [this]() {
+        while (true) {
+            int startY, startX;
+            {
+                poolMutex.lock();
+                if (chunkPool.empty()) {
+                    poolMutex.unlock();
+                    return;
                 }
-
-                imageBuffer[imageY][imageX] = finalColor / (float)RAYS_PER_PIXEL;
+                std::tie(startY, startX) = chunkPool.back();
+                chunkPool.pop_back();
+                poolMutex.unlock();
             }
 
-            rowsCompleted++;
-            std::cout << std::fixed << std::setprecision(3) << (float)rowsCompleted / imageHeight * 100.0f << "%\n";
+            for (int imageY = startY; imageY < std::min(startY + bucketSize, imageHeight); ++imageY) {
+                for (int imageX = startX; imageX < std::min(startX + bucketSize, imageWidth); ++imageX) {
+                    Vector3 finalColor = Vector3(0, 0, 0);
+                    for (int rayNumber = 0; rayNumber < RAYS_PER_PIXEL; rayNumber++) {
+                        float randomX = ((float)rand() / (RAND_MAX)) + imageX;
+                        float randomY = ((float)rand() / (RAND_MAX)) + imageY;
+
+                        float x = randomX / imageWidth;  // from 0 to 1
+                        float y = randomY / imageHeight; // from 0 to 1
+
+                        x = (2.0f * x) - 1.0f; // from -1 to 1
+                        y = 1.0f - (2.0f * y); // from -1 to 1
+
+                        float aspectRatio = (float)imageWidth / (float)imageHeight;
+                        x *= aspectRatio; // from -ar to ar
+
+                        Vector3 color = RayTrace(x, y);
+                        color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
+                        finalColor = finalColor + color;
+                    }
+
+                    imageBuffer[imageY][imageX] = finalColor / (float)RAYS_PER_PIXEL;
+                }
+            }
+
+            poolMutex.lock();
+            std::cout << std::fixed << std::setprecision(3) << 100.0f - ((float)chunkPool.size() / ((imageHeight / (float)bucketSize) * (imageWidth / (float)bucketSize))) * 100.0f << "%\n";
+            poolMutex.unlock();
         }
     };
 
     std::vector<std::thread> threads;
 
     for (int i = 0; i < THREADS_TO_USE; ++i) {
-        threads.emplace_back(renderRowRange, i, THREADS_TO_USE);
+        threads.emplace_back(renderChunk);
     }
 
     for (auto& thread : threads) {
@@ -262,10 +283,9 @@ void Scene::loadScene(const std::string& filename) {
 
     if (document.HasMember("settings") && document["settings"].HasMember("image_settings")) {
         const auto& imageSettings = document["settings"]["image_settings"];
-        if (imageSettings.HasMember("width") && imageSettings.HasMember("height")) {
-            imageWidth = imageSettings["width"].GetInt();
-            imageHeight = imageSettings["height"].GetInt();
-        }
+        imageWidth = imageSettings.HasMember("width") ? imageSettings["width"].GetInt() : 1920;
+        imageHeight = imageSettings.HasMember("height") ? imageSettings["height"].GetInt() : 1080;
+        bucketSize = imageSettings.HasMember("bucket_size") ? imageSettings["bucket_size"].GetInt() : 32;
     }
 
     if (document.HasMember("camera")) {

@@ -38,9 +38,11 @@ private:
     std::vector<Material> materials;
     std::vector<Texture> textures;
     std::vector<std::vector<Vector3>> imageBuffer;
-    //std::mutex bufferMutex;
+    std::mutex poolMutex;
+    std::vector<std::pair<int, int>> chunkPool;
     int imageWidth;
     int imageHeight;
+    int bucketSize;
     int rowsCompleted;
     AABB rootAABB;
 
