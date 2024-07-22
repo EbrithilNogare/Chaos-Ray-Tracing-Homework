@@ -1,8 +1,13 @@
-﻿  Scene.cpp
+﻿  Constants.hpp
+  Scene.cpp
+  Main.cpp
+D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\Main.cpp(32,27): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+  Scene.hpp
+  Texture.cpp
 ChaosRaytracer\x64\Release\Scene.obj : warning LNK4042: object specified more than once; extras ignored
   Generating code
-  1 of 1188 functions (<0.1%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    8 functions had inline decision re-evaluated but remain unchanged
+  Previous IPDB not found, fall back to full compilation.
+D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\AABB.hpp(76): warning C4715: '`AABB::BuildAccTree'::`2'::<lambda_1>::operator()': not all control paths return a value
+  All 1273 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   ChaosRaytracer.vcxproj -> D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Release\ChaosRaytracer.exe

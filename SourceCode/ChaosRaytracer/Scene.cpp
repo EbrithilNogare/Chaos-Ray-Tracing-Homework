@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene.hpp"
+#include "Random.hpp"
 
 Scene::Scene()
     : defaultColor(Vector3(0, 0, 0)),
@@ -11,22 +12,45 @@ Scene::Scene()
     rootAABB(Vector3(), Vector3()),
     rowsCompleted(0) {}
 
-Intersection Scene::WorldIntersection(const Vector3 ray, const Vector3 position)
+Intersection Scene::WorldIntersection(const Vector3 ray, const Vector3 position, bool backfaceCullingON)
+{
+    Intersection closestIntersection = Intersection();
+    if (rootAABB.intersect(position, ray)) {
+        closestIntersection = TraverseKDTree(rootAABB, ray, position, backfaceCullingON);
+    }
+    return closestIntersection;
+}
+
+Intersection Scene::TraverseKDTree(const AABB& node, const Vector3& ray, const Vector3& position, bool backfaceCullingON)
 {
     Intersection closestIntersection = Intersection();
 
-    if (!rootAABB.intersect(position, ray)) {
+    if (!node.intersect(position, ray)) {
         return closestIntersection;
     }
 
-    for (auto& triangle : triangles) {
-        Intersection intersection = triangle.intersect(ray, position);
-        if (intersection.distance < closestIntersection.distance) {
-            closestIntersection = intersection;
-            closestIntersection.materialIndex = triangle.materialIndex;
-            closestIntersection.surfaceNormal = triangle.hitNormal(intersection.uv.x, intersection.uv.y);
+    if (node.isLeaf()) {
+        for (auto& triangle : node.triangles) {
+            Intersection intersection = triangle.intersect(ray, position, backfaceCullingON);
+            if (intersection.distance < closestIntersection.distance) {
+                closestIntersection = intersection;
+                closestIntersection.materialIndex = triangle.materialIndex;
+                closestIntersection.surfaceNormal = triangle.hitNormal(intersection.uv.x, intersection.uv.y);
+            }
         }
     }
+    else {
+        Intersection leftIntersection = Scene::TraverseKDTree(*node.childA, ray, position, backfaceCullingON);
+        Intersection rightIntersection = Scene::TraverseKDTree(*node.childB, ray, position, backfaceCullingON);
+
+        if (leftIntersection.distance < closestIntersection.distance) {
+            closestIntersection = leftIntersection;
+        }
+        if (rightIntersection.distance < closestIntersection.distance) {
+            closestIntersection = rightIntersection;
+        }
+    }
+
     return closestIntersection;
 }
 
@@ -78,7 +102,7 @@ Vector3 Scene::Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal)
         Vector3 lightDir = (light.position - intersectionPoint).normalize();
         Vector3 fromLightDir = (intersectionPoint - light.position).normalize();
 
-        Intersection intersection = WorldIntersection(fromLightDir, light.position);
+        Intersection intersection = WorldIntersection(fromLightDir, light.position, false);
 
         if (intersection.distance + EPSILON < (light.position - intersectionPoint).length()) {
             continue;
@@ -94,14 +118,14 @@ Vector3 Scene::Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal)
     return lightContribution;
 }
 
-Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBounces) {
+Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBounces, bool backfaceCullingON) {
     Vector3 finalColor = Vector3(0, 0, 0);
     Vector3 colorPersistance = Vector3(1, 1, 1);
     Vector3 rayOrigin = origin;
     Vector3 currentRay = ray;
 
     for (int bounceNumber = 0; bounceNumber < maxBounces; bounceNumber++) {
-        Intersection intersection = WorldIntersection(currentRay, rayOrigin);
+        Intersection intersection = WorldIntersection(currentRay, rayOrigin, backfaceCullingON);
 
         if (intersection.type == Miss ) {
             finalColor = finalColor + colorPersistance * defaultColor;
@@ -118,7 +142,14 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
         if (material.type == diffuse) {
             Vector3 lightContribution = Diffuse(intersectionPoint, intersection.surfaceNormal);
             finalColor = finalColor + colorPersistance * lightContribution;
-            break;
+
+            if (globalIluminationOn) {
+                currentRay = RandomHemisphereDirection(intersection.surfaceNormal).normalize();
+                rayOrigin = intersectionPoint + currentRay * EPSILON;
+            }
+            else {
+                break;
+            }
         }
 
         if (material.type == reflective) {
@@ -136,8 +167,8 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
             Vector3 reflectedRay = (currentRay - intersection.surfaceNormal * 2 * (currentRay.dot(intersection.surfaceNormal))).normalize();
             Vector3 refractedRay = Refract(currentRay, intersection.surfaceNormal, material.ior).normalize();
 
-            Vector3 reflectedColor = RayTraceRay(intersectionPoint + reflectedRay * EPSILON, reflectedRay, (maxBounces - 1) / 2);
-            Vector3 refractedColor = RayTraceRay(intersectionPoint + refractedRay * EPSILON, refractedRay, (maxBounces - 1) / 2);
+            Vector3 reflectedColor = RayTraceRay(intersectionPoint + reflectedRay * EPSILON, reflectedRay, std::min(maxBounces - 1, 1), backfaceCullingON);
+            Vector3 refractedColor = RayTraceRay(intersectionPoint + refractedRay * EPSILON, refractedRay, (maxBounces - 1), false);
 
             finalColor = finalColor + colorPersistance * (reflectedColor * kr + refractedColor * (1 - kr));
             break;
@@ -154,7 +185,7 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
 Vector3 Scene::RayTrace(float imageX, float imageY) {
     Vector3 rayOrigin = cameraPosition;
     Vector3 ray = (cameraRotation * Vector3(imageX, imageY, -1)).normalize();
-    return RayTraceRay(rayOrigin, ray, MAXIMUM_RAY_BOUNCES_COUNT);
+    return RayTraceRay(rayOrigin, ray, MAXIMUM_RAY_BOUNCES_COUNT, true);
 }
 
 
@@ -188,6 +219,7 @@ void Scene::renderFrame(int frameNumber) {
                 }
                 std::tie(startY, startX) = chunkPool.back();
                 chunkPool.pop_back();
+                std::cout << std::fixed << std::setprecision(3) << 100.0f - ((float)chunkPool.size() / (std::ceil(imageHeight / (float)bucketSize) * std::ceil(imageWidth / (float)bucketSize))) * 100.0f << "%\n";
                 poolMutex.unlock();
             }
 
@@ -208,17 +240,13 @@ void Scene::renderFrame(int frameNumber) {
                         x *= aspectRatio; // from -ar to ar
 
                         Vector3 color = RayTrace(x, y);
-                        color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
+                        //color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
                         finalColor = finalColor + color;
                     }
 
                     imageBuffer[imageY][imageX] = finalColor / (float)RAYS_PER_PIXEL;
                 }
             }
-
-            poolMutex.lock();
-            std::cout << std::fixed << std::setprecision(3) << 100.0f - ((float)chunkPool.size() / ((imageHeight / (float)bucketSize) * (imageWidth / (float)bucketSize))) * 100.0f << "%\n";
-            poolMutex.unlock();
         }
     };
 
@@ -286,6 +314,13 @@ void Scene::loadScene(const std::string& filename) {
         imageWidth = imageSettings.HasMember("width") ? imageSettings["width"].GetInt() : 1920;
         imageHeight = imageSettings.HasMember("height") ? imageSettings["height"].GetInt() : 1080;
         bucketSize = imageSettings.HasMember("bucket_size") ? imageSettings["bucket_size"].GetInt() : 32;
+    }
+
+    if (document.HasMember("settings") && document["settings"].HasMember("gi_on")) {
+        globalIluminationOn = document["settings"]["gi_on"].GetBool();
+    }
+    else {
+        globalIluminationOn = false;
     }
 
     if (document.HasMember("camera")) {
@@ -407,6 +442,9 @@ void Scene::loadScene(const std::string& filename) {
             materials.push_back(Material(materialType, albedo, ior, smoothShading));
         }
     }
+    if (materials.size() == 0) {
+        materials.push_back(Material(diffuse, Texture::CreateAlbedoTexture("", Vector3(.5f)), 1.0f, false));
+    }
 
     triangles.clear();
     if (document.HasMember("objects") && document["objects"].IsArray()) {
@@ -416,6 +454,9 @@ void Scene::loadScene(const std::string& filename) {
             int materialIndex = -1;
             if (object.HasMember("material_index")) {
                 materialIndex = object["material_index"].GetInt();
+            }
+            else {
+                materialIndex = 0;
             }
             if (object.HasMember("vertices") && object["vertices"].IsArray() &&
                 object.HasMember("triangles") && object["triangles"].IsArray()) {
@@ -492,15 +533,7 @@ void Scene::loadScene(const std::string& filename) {
     }
 
     if (!triangles.empty()) {
-        Vector3 minVec = triangles[0].vertexA;
-        Vector3 maxVec = triangles[0].vertexA;
-        rootAABB = AABB(minVec, maxVec);
-
-        for (const auto& triangle : triangles) {
-            rootAABB.expandToInclude(triangle.vertexA);
-            rootAABB.expandToInclude(triangle.vertexB);
-            rootAABB.expandToInclude(triangle.vertexC);
-        }
-
+        rootAABB = AABB::BuildAccTree(0, triangles);
     }
+
 }

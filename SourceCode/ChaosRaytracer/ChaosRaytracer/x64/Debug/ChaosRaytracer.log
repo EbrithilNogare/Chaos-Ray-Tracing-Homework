@@ -1,8 +1,10 @@
 ﻿  Constants.hpp
   Scene.cpp
   Main.cpp
+D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\Main.cpp(34,27): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   Scene.hpp
   Texture.cpp
   Generating Code...
+D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\AABB.hpp(76,1): warning C4715: '`AABB::BuildAccTree'::`2'::<lambda_1>::operator()': not all control paths return a value
 ChaosRaytracer\x64\Debug\Scene.obj : warning LNK4042: object specified more than once; extras ignored
   ChaosRaytracer.vcxproj -> D:\Chaos-Ray-Tracing-Homework\SourceCode\ChaosRaytracer\x64\Debug\ChaosRaytracer.exe

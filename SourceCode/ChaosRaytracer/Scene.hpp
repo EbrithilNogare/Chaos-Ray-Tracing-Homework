@@ -26,14 +26,15 @@ class Scene {
 public:
     Scene();
 
+    Vector3 cameraPosition;
+    Matrix3x3 cameraRotation;
+    std::vector<Triangle> triangles;
+
     void loadScene(const std::string& filename);
     void renderFrame(int frameNumber);
 
 private:
     Vector3 defaultColor;
-    Vector3 cameraPosition;
-    Matrix3x3 cameraRotation;
-    std::vector<Triangle> triangles;
     std::vector<Light> lights;
     std::vector<Material> materials;
     std::vector<Texture> textures;
@@ -44,14 +45,16 @@ private:
     int imageHeight;
     int bucketSize;
     int rowsCompleted;
+    bool globalIluminationOn;
     AABB rootAABB;
 
-    Intersection WorldIntersection(const Vector3 ray, const Vector3 position);
+    Intersection WorldIntersection(const Vector3 ray, const Vector3 position, bool backfaceCullingON);
+    Intersection TraverseKDTree(const AABB& node, const Vector3& ray, const Vector3& position, bool backfaceCullingON);
     Vector3 Refract(const Vector3& incident, const Vector3& normal, float eta);
     float Fresnel(const Vector3& incident, const Vector3& normal, float ior);
     Vector3 Diffuse(Vector3& intersectionPoint, Vector3& surfaceNormal);
     Vector3 RayTrace(float imageX, float imageY);
-    Vector3 RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBounces);
+    Vector3 RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBounces, bool backfaceCullingON);
     int colorFromDecimalToWholeRepresentation(float value);
     std::string colorToPPMFormat(Vector3 color);
 };

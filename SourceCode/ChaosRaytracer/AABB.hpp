@@ -5,6 +5,12 @@
 #include "Vector3.hpp"
 #include "Triangle.hpp"
 
+enum Axis {
+    AxisX,
+    AxisY,
+    AxisZ
+};
+
 struct AABB {
     Vector3 min;
     Vector3 max;
@@ -46,4 +52,46 @@ struct AABB {
 
         return true;
     }
+
+    static AABB BuildAccTree(int depth, std::vector<Triangle>& triangles) {
+        if (depth > MAX_KDTREE_DEPTH || triangles.size() <= MIN_TRIANGLES_IN_NODE) {
+            AABB leafNode = AABB(Vector3(), Vector3());
+            leafNode.triangles = triangles;
+            for (const auto& triangle : triangles) {
+                leafNode.expandToInclude(triangle.vertexA);
+                leafNode.expandToInclude(triangle.vertexB);
+                leafNode.expandToInclude(triangle.vertexC);
+            }
+            return leafNode;
+        }
+
+
+        Axis axis = static_cast<Axis>(depth % 3);
+        std::nth_element(triangles.begin(), triangles.begin() + triangles.size() / 2, triangles.end(), [axis](const Triangle& a, const Triangle& b) {
+            switch (axis) {
+                case AxisX: return a.centroid().x < b.centroid().x;
+                case AxisY: return a.centroid().y < b.centroid().y;
+                case AxisZ: return a.centroid().z < b.centroid().z;
+            }
+        });
+
+
+        std::vector<Triangle> leftTriangles(triangles.begin(), triangles.begin() + triangles.size() / 2);
+        std::vector<Triangle> rightTriangles(triangles.begin() + triangles.size() / 2, triangles.end());
+
+        AABB node = AABB(Vector3(), Vector3());
+        node.childA = new AABB(BuildAccTree(depth + 1, leftTriangles));
+        node.childB = new AABB(BuildAccTree(depth + 1, rightTriangles));
+        node.expandToInclude(node.childA->min);
+        node.expandToInclude(node.childA->max);
+        node.expandToInclude(node.childB->min);
+        node.expandToInclude(node.childB->max);
+
+        return node;
+    }
+
+    bool isLeaf() const {
+        return childA == nullptr && childB == nullptr;
+    }
+
 };

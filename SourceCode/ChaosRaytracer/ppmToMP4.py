@@ -17,7 +17,7 @@ frame = cv2.imread(images[0])
 height, width, layers = frame.shape
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
-video = cv2.VideoWriter(video_file, fourcc, 30, (width, height))
+video = cv2.VideoWriter(video_file, fourcc, 24, (width, height))
 
 for image in images:
     img = cv2.imread(image)

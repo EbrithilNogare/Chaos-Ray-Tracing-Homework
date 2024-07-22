@@ -34,7 +34,11 @@ struct Triangle {
         return 0.5f * vectorAB.cross(vectorAC).length();
     }
 
-    Intersection intersect(Vector3 ray, Vector3 cameraPosition) const {
+    Vector3 centroid() const {
+        return (vertexA + vertexB + vertexC) / 3.0f;
+    }
+
+    Intersection intersect(Vector3 ray, Vector3 cameraPosition, bool backfaceCullingON) const {
         Intersection intersection = Intersection();
 
         Vector3 translatedPointA = vertexA - cameraPosition;
@@ -52,10 +56,9 @@ struct Triangle {
         }
 
         float dotToPlane = translatedPointA.dot(normal);
-        // Back face culling
-        //if (dotToPlane >= 0) {
-        //	return std::numeric_limits<float>::infinity();
-        //}
+        if (backfaceCullingON && dotToPlane >= 0) {
+            return intersection;
+        }
 
         float distance = dotToPlane / dotOfRayAndNormal;
         if (distance < 0) {

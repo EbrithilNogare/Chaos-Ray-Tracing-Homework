@@ -24,4 +24,39 @@ struct Matrix3x3 {
 			vec.x * data[0][2] + vec.y * data[1][2] + vec.z * data[2][2]
 		);
 	}
+
+	void setRotationX(float angle) {
+		float c = cos(angle);
+		float s = sin(angle);
+		data[0][0] = 1;  data[0][1] = 0;  data[0][2] = 0;
+		data[1][0] = 0;  data[1][1] = c;  data[1][2] = -s;
+		data[2][0] = 0;  data[2][1] = s;  data[2][2] = c;
+	}
+
+	void setRotationY(float angle) {
+		float c = cos(angle);
+		float s = sin(angle);
+		data[0][0] = c;  data[0][1] = 0; data[0][2] = s; 
+		data[1][0] = 0;  data[1][1] = 1; data[1][2] = 0; 
+		data[2][0] = -s; data[2][1] = 0; data[2][2] = c; 
+	}
+
+	void setRotationZ(float angle) {
+		float c = cos(angle);
+		float s = sin(angle);
+		data[0][0] = c;  data[0][1] = -s; data[0][2] = 0;
+		data[1][0] = s;  data[1][1] = c;  data[1][2] = 0;
+		data[2][0] = 0;  data[2][1] = 0;  data[2][2] = 1;
+	}
+
+	void setLookAt(const Vector3& eye, const Vector3& target, const Vector3& up) {
+		Vector3 f = (target - eye).normalize(); // Forward
+		Vector3 r = up.cross(f).normalize();    // Right
+		Vector3 u = f.cross(r);                // Up
+		
+		data[0][0] = r.x;  data[0][1] = r.y;  data[0][2] = r.z;
+		data[1][0] = u.x;  data[1][1] = u.y;  data[1][2] = u.z;
+		data[2][0] = -f.x; data[2][1] = -f.y; data[2][2] = -f.z;
+	}
+
 };

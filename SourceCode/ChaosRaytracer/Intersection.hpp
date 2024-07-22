@@ -16,5 +16,4 @@ struct Intersection {
 	Vector3 surfaceNormal;
 
 	Intersection() : distance(std::numeric_limits<float>::infinity()), materialIndex(-1), type(Miss) {}
-
 };
