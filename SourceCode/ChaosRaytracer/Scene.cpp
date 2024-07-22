@@ -35,7 +35,7 @@ Intersection Scene::TraverseKDTree(const AABB& node, const Vector3& ray, const V
             if (intersection.distance < closestIntersection.distance) {
                 closestIntersection = intersection;
                 closestIntersection.materialIndex = triangle.materialIndex;
-                closestIntersection.surfaceNormal = triangle.hitNormal(intersection.uv.x, intersection.uv.y);
+                closestIntersection.surfaceNormal = triangle.hitNormal(intersection.uv.u, intersection.uv.v);
             }
         }
     }
@@ -174,7 +174,7 @@ Vector3 Scene::RayTraceRay(const Vector3& origin, const Vector3& ray, int maxBou
             break;
         }
 
-        if (colorPersistance.x < EPSILON && colorPersistance.y < EPSILON && colorPersistance.z < EPSILON) {
+        if (colorPersistance.r < EPSILON && colorPersistance.g < EPSILON && colorPersistance.b < EPSILON) {
             break;
         }
     }
@@ -195,7 +195,7 @@ int Scene::colorFromDecimalToWholeRepresentation(float value) {
 }
 
 std::string Scene::colorToPPMFormat(Vector3 color) {
-    return std::to_string(colorFromDecimalToWholeRepresentation(color.x)) + " " + std::to_string(colorFromDecimalToWholeRepresentation(color.y)) + " " + std::to_string(colorFromDecimalToWholeRepresentation(color.z));
+    return std::to_string(colorFromDecimalToWholeRepresentation(color.r)) + " " + std::to_string(colorFromDecimalToWholeRepresentation(color.g)) + " " + std::to_string(colorFromDecimalToWholeRepresentation(color.b));
 }
 
 void Scene::renderFrame(int frameNumber) {
@@ -240,7 +240,7 @@ void Scene::renderFrame(int frameNumber) {
                         x *= aspectRatio; // from -ar to ar
 
                         Vector3 color = RayTrace(x, y);
-                        //color = Vector3((float)pow(color.x, 2.2), (float)pow(color.y, 2.2), (float)pow(color.z, 2.2)); // gamma correction;
+                        //color = Vector3((float)pow(color.r, 2.2), (float)pow(color.g, 2.2), (float)pow(color.b, 2.2)); // gamma correction;
                         finalColor = finalColor + color;
                     }
 
@@ -443,7 +443,7 @@ void Scene::loadScene(const std::string& filename) {
         }
     }
     if (materials.size() == 0) {
-        materials.push_back(Material(diffuse, Texture::CreateAlbedoTexture("", Vector3(.5f)), 1.0f, false));
+        materials.push_back(Material(diffuse, Texture::CreateAlbedoTexture("", Vector3(.5f, .5f, .5f)), 1.0f, false));
     }
 
     triangles.clear();
@@ -535,5 +535,4 @@ void Scene::loadScene(const std::string& filename) {
     if (!triangles.empty()) {
         rootAABB = AABB::BuildAccTree(0, triangles);
     }
-
 }

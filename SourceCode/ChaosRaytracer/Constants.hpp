@@ -4,11 +4,11 @@
 #include <mutex>
 
 // Settings
-const int RAYS_PER_PIXEL = 128;
+const int RAYS_PER_PIXEL = 8;
 const int MAXIMUM_RAY_BOUNCES_COUNT = 6;
 const float LIGHT_INTENSITY_CORRECTION = 1 / 8.0f / 3.0f;
-const std::string SCENES_FOLDER = "./scenes/14";
-const int THREADS_TO_USE = 6;// std::max(1, (int)std::thread::hardware_concurrency() - 1);
+const std::string SCENES_FOLDER = "./scenes/15";
+const int THREADS_TO_USE = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 const int MAX_KDTREE_DEPTH = 16;
 const int MIN_TRIANGLES_IN_NODE = 4;
 

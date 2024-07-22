@@ -14,7 +14,7 @@ enum Axis {
 struct AABB {
     Vector3 min;
     Vector3 max;
-    AABB* parent;
+    AABB *parent;
     AABB *childA;
     AABB *childB;
     std::vector<Triangle> triangles;
@@ -41,8 +41,8 @@ struct AABB {
 
         if ((tmin > tymax) || (tymin > tmax)) return false;
 
-        if (tymin > tmin) tmin = tymin;
-        if (tymax < tmax) tmax = tymax;
+        tmin = std::max(tmin, tymin);
+        tmax = std::min(tmax, tymax);
 
         float tzmin = (min.z - rayOrigin.z) / rayDir.z;
         float tzmax = (max.z - rayOrigin.z) / rayDir.z;
@@ -55,7 +55,7 @@ struct AABB {
 
     static AABB BuildAccTree(int depth, std::vector<Triangle>& triangles) {
         if (depth > MAX_KDTREE_DEPTH || triangles.size() <= MIN_TRIANGLES_IN_NODE) {
-            AABB leafNode = AABB(Vector3(), Vector3());
+            AABB leafNode = AABB(triangles[0].vertexA, triangles[0].vertexA);
             leafNode.triangles = triangles;
             for (const auto& triangle : triangles) {
                 leafNode.expandToInclude(triangle.vertexA);
@@ -65,21 +65,20 @@ struct AABB {
             return leafNode;
         }
 
-
-        Axis axis = static_cast<Axis>(depth % 3);
+        Axis axis = (Axis)(depth % 3);
         std::nth_element(triangles.begin(), triangles.begin() + triangles.size() / 2, triangles.end(), [axis](const Triangle& a, const Triangle& b) {
             switch (axis) {
                 case AxisX: return a.centroid().x < b.centroid().x;
                 case AxisY: return a.centroid().y < b.centroid().y;
                 case AxisZ: return a.centroid().z < b.centroid().z;
             }
+            throw "unknown axis";
         });
-
 
         std::vector<Triangle> leftTriangles(triangles.begin(), triangles.begin() + triangles.size() / 2);
         std::vector<Triangle> rightTriangles(triangles.begin() + triangles.size() / 2, triangles.end());
 
-        AABB node = AABB(Vector3(), Vector3());
+        AABB node = AABB(triangles[0].vertexA, triangles[0].vertexA);
         node.childA = new AABB(BuildAccTree(depth + 1, leftTriangles));
         node.childB = new AABB(BuildAccTree(depth + 1, rightTriangles));
         node.expandToInclude(node.childA->min);
@@ -90,8 +89,5 @@ struct AABB {
         return node;
     }
 
-    bool isLeaf() const {
-        return childA == nullptr && childB == nullptr;
-    }
-
+    inline bool isLeaf() const { return childA == nullptr && childB == nullptr; }
 };

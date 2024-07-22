@@ -6,7 +6,7 @@
 		"image_settings": {
 			"width": 1920,
 			"height": 1080,
-			"bucket_size": 24
+			"bucket_size": 128
 		}
 	},
 	

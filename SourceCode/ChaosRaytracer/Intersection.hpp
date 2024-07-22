@@ -1,11 +1,7 @@
 #pragma once
-
 #include "Vector3.hpp"
 
-enum IntersectionType {
-	Miss,
-	Hit
-};
+enum IntersectionType { Miss, Hit };
 
 struct Intersection {
 	int materialIndex;

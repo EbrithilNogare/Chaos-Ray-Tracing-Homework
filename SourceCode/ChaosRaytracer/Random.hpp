@@ -26,6 +26,7 @@ Vector3 RandomHemisphereDirection(const Vector3& normal) {
     else {
         tangent = Vector3(0, normal.z, -normal.y).normalize();
     }
+
     bitangent = normal.cross(tangent);
 
     return tangent * x + bitangent * y + normal * z;

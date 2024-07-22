@@ -2,9 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <fstream>
-#include <stdexcept>
-#include <cmath>
 
 #include "Vector3.hpp"
 #include "Constants.hpp"

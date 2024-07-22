@@ -36,17 +36,17 @@ Vector3 Texture::GetColorFromMaterial(Vector3 uv, Vector3 interpolatedUV) const 
     case ALBEDO:
         return albedo;
     case EDGES: {
-        float distanceToEdge = std::min(std::min(uv.x, uv.y), 1-uv.x-uv.y);
+        float distanceToEdge = std::min(std::min(uv.u, uv.v), 1-uv.u-uv.v);
         return distanceToEdge < edgeWidth ? edgeColor : innerColor;
     }
     case CHECKER: {
-        int checkX = (int)(std::floor(interpolatedUV.x / squareSize)) % 2;
-        int checkY = (int)(std::floor(interpolatedUV.y / squareSize)) % 2;
+        int checkX = (int)(std::floor(interpolatedUV.u / squareSize)) % 2;
+        int checkY = (int)(std::floor(interpolatedUV.v / squareSize)) % 2;
         return (checkX == checkY) ? colorA : colorB;
     }
     case BITMAP: {
-        int x = std::clamp((int)(interpolatedUV.x * bitmap.width),0, bitmap.width);
-        int y = std::clamp((int)((1.0f - interpolatedUV.y) * bitmap.height), 0, bitmap.height);
+        int x = std::clamp((int)(interpolatedUV.u * bitmap.width),0, bitmap.width);
+        int y = std::clamp((int)((1.0f - interpolatedUV.v) * bitmap.height), 0, bitmap.height);
         return bitmap.data[y * bitmap.width + x];
     }
     default:

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Scene.hpp"
-
 #include <chrono>
+
+#include "Scene.hpp"
 
 int main() {
     using namespace std::literals;
@@ -11,14 +11,14 @@ int main() {
     Scene scene;
 
 
+
+    /**/
+    scene.loadScene(SCENES_FOLDER + "/scene1.crtscene"); scene.renderFrame(1);
+    /**/
+
+
+
     /*/
-    scene.loadScene(SCENES_FOLDER + "/scene0.crtscene"); scene.renderFrame(0);
-    /**/
-    
-
-
-
-    /**/
     scene.loadScene(SCENES_FOLDER + "/scene2.crtscene");
     float distance = 4.0f;
     size_t totalFrames = 24 * 4;
@@ -32,8 +32,6 @@ int main() {
         scene.renderFrame(i);
     }
     /**/
-
-
 
 
     
